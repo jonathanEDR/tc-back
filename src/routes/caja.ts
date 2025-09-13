@@ -181,7 +181,7 @@ router.post('/', requireAuth, async (req, res) => {
 
     console.log('[CAJA] Creando movimiento en BD:', JSON.stringify(nuevoMovimiento.toObject(), null, 2));
     const movimientoGuardado = await nuevoMovimiento.save();
-    await movimientoGuardado.populate('usuario', 'name email');
+    await movimientoGuardado.populate('usuario', 'clerkId name email');
 
     res.status(201).json({
       success: true,
@@ -251,17 +251,17 @@ router.get('/', requireAuth, async (req, res) => {
     const filtros = filtrosSchema.parse(req.query);
     console.log('[CAJA] Filtros válidos:', filtros);
     
-    // Construir query
-    const query: any = { usuario: user._id };
+    // Construir query - Mostrar todos los registros de todos los usuarios
+    const query: any = {};
 
     // Filtros de fecha
     if (filtros.fechaInicio || filtros.fechaFin) {
-      query.fecha = {};
+      query.fechaCaja = {};
       if (filtros.fechaInicio) {
-        query.fecha.$gte = new Date(filtros.fechaInicio);
+        query.fechaCaja.$gte = new Date(filtros.fechaInicio);
       }
       if (filtros.fechaFin) {
-        query.fecha.$lte = new Date(filtros.fechaFin);
+        query.fechaCaja.$lte = new Date(filtros.fechaFin);
       }
     }
 
@@ -287,17 +287,17 @@ router.get('/', requireAuth, async (req, res) => {
     console.log('[CAJA] Ejecutando consultas a BD...');
     const [movimientos, total] = await Promise.all([
       Caja.find(query)
-        .populate('usuario', 'name email')
-        .sort({ fecha: -1 })
+        .populate('usuario', 'clerkId name email')
+        .sort({ fechaCaja: -1 })
         .skip(skip)
         .limit(limit),
       Caja.countDocuments(query)
     ]);
 
-    // Calcular resumen
-    const resumenQuery: any = { usuario: user._id };
+    // Calcular resumen - Incluir todos los registros
+    const resumenQuery: any = {};
     if (filtros.fechaInicio || filtros.fechaFin) {
-      resumenQuery.fecha = query.fecha;
+      resumenQuery.fechaCaja = query.fechaCaja;
     }
 
     const resumen = await Caja.aggregate([
@@ -360,7 +360,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     const movimiento = await Caja.findOne({
       _id: req.params.id,
       usuario: user._id
-    }).populate('usuario', 'name email');
+    }).populate('usuario', 'clerkId name email');
 
     if (!movimiento) {
       return res.status(404).json({
@@ -405,7 +405,7 @@ router.put('/:id', requireAuth, async (req, res) => {
       { _id: req.params.id, usuario: user._id },
       datosActualizacion,
       { new: true, runValidators: true }
-    ).populate('usuario', 'name email');
+    ).populate('usuario', 'clerkId name email');
 
     if (!movimientoActualizado) {
       return res.status(404).json({
@@ -496,9 +496,9 @@ router.get('/reportes/resumen', requireAuth, async (req, res) => {
     
     const query: any = { usuario: user._id };
     if (fechaInicio || fechaFin) {
-      query.fecha = {};
-      if (fechaInicio) query.fecha.$gte = new Date(fechaInicio as string);
-      if (fechaFin) query.fecha.$lte = new Date(fechaFin as string);
+      query.fechaCaja = {};
+      if (fechaInicio) query.fechaCaja.$gte = new Date(fechaInicio as string);
+      if (fechaFin) query.fechaCaja.$lte = new Date(fechaFin as string);
     }
 
     // Resumen por categoría
