@@ -23,7 +23,15 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
         issuer: process.env.CLERK_ISSUER || 'https://clerk.clerk.accounts.dev',
       });
       console.log('[clerkAuth] verifyToken payload:', payload && (payload as any).sub ? { sub: (payload as any).sub } : '(no sub)');
-      (req as any).user = payload;
+      
+      // Extraer el userId del payload de Clerk
+      const userId = (payload as any).sub;
+      if (!userId) {
+        console.error('[clerkAuth] No sub found in payload');
+        return res.status(401).json({ error: 'Invalid token format' });
+      }
+      
+      (req as any).user = { userId };
       return next();
     } catch (err) {
       // Emit full error in server logs to diagnose why token is rejected
