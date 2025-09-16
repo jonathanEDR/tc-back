@@ -161,9 +161,29 @@ router.post('/', requireAuth, async (req, res) => {
     }
 
     // Buscar el usuario en nuestra base de datos
-    const user = await User.findOne({ clerkId: userId });
+    let user = await User.findOne({ clerkId: userId });
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      console.log('[CAJA] Usuario no encontrado en BD, creando automáticamente para clerkId:', userId);
+      
+      // Auto-registrar usuario de Clerk que no existe en BD
+      try {
+        // Obtener información del usuario desde Clerk
+        const { clerkClient } = await import('@clerk/clerk-sdk-node');
+        const clerkUser = await clerkClient.users.getUser(userId);
+        
+        // Crear usuario en la BD
+        user = new User({
+          clerkId: userId,
+          name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Usuario',
+          email: clerkUser.emailAddresses?.[0]?.emailAddress || `user_${userId}@example.com`
+        });
+        
+        await user.save();
+        console.log('[CAJA] Usuario auto-registrado:', user._id);
+      } catch (autoRegisterError) {
+        console.error('[CAJA] Error en auto-registro:', autoRegisterError);
+        return res.status(404).json({ success: false, message: 'Usuario no encontrado y no se pudo auto-registrar' });
+      }
     }
 
     console.log('[CAJA] Validando datos con Zod...');
@@ -239,12 +259,31 @@ router.get('/', requireAuth, async (req, res) => {
     const todosLosUsuarios = await User.find({}, 'clerkId name email');
     console.log('[CAJA] Todos los usuarios en BD:', JSON.stringify(todosLosUsuarios, null, 2));
     
-    const user = await User.findOne({ clerkId: userId });
+    let user = await User.findOne({ clerkId: userId });
     console.log('[CAJA] Usuario encontrado:', user ? { id: user._id, name: user.name, clerkId: user.clerkId } : 'NO ENCONTRADO');
     
     if (!user) {
-      console.log('[CAJA] Error: Usuario no encontrado en BD');
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      console.log('[CAJA] Usuario no encontrado en BD, creando automáticamente para clerkId:', userId);
+      
+      // Auto-registrar usuario de Clerk que no existe en BD
+      try {
+        // Obtener información del usuario desde Clerk
+        const { clerkClient } = await import('@clerk/clerk-sdk-node');
+        const clerkUser = await clerkClient.users.getUser(userId);
+        
+        // Crear usuario en la BD
+        user = new User({
+          clerkId: userId,
+          name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Usuario',
+          email: clerkUser.emailAddresses?.[0]?.emailAddress || `user_${userId}@example.com`
+        });
+        
+        await user.save();
+        console.log('[CAJA] Usuario auto-registrado:', user._id);
+      } catch (autoRegisterError) {
+        console.error('[CAJA] Error en auto-registro:', autoRegisterError);
+        return res.status(404).json({ success: false, message: 'Usuario no encontrado y no se pudo auto-registrar' });
+      }
     }
 
     console.log('[CAJA] Validando filtros...');

@@ -69,14 +69,35 @@ router.post('/register', async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const clerkId = (req as any).user.sub;
-    const user = await User.findOne({ clerkId });
+    let user = await User.findOne({ clerkId });
 
     if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+      console.log('[auth] Usuario no encontrado en BD, creando automáticamente para clerkId:', clerkId);
+      
+      // Auto-registrar usuario de Clerk que no existe en BD
+      try {
+        // Obtener información del usuario desde Clerk
+        const { clerkClient } = await import('@clerk/clerk-sdk-node');
+        const clerkUser = await clerkClient.users.getUser(clerkId);
+        
+        // Crear usuario en la BD
+        user = new User({
+          clerkId,
+          name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Usuario',
+          email: clerkUser.emailAddresses?.[0]?.emailAddress || `user_${clerkId}@example.com`
+        });
+        
+        await user.save();
+        console.log('[auth] Usuario auto-registrado:', user._id);
+      } catch (autoRegisterError) {
+        console.error('[auth] Error en auto-registro:', autoRegisterError);
+        return res.status(404).json({ error: 'Usuario no encontrado y no se pudo auto-registrar' });
+      }
     }
 
     res.json({ user });
   } catch (error) {
+    console.error('[auth] Error en /me:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
