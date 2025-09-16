@@ -3,16 +3,28 @@ services:
     name: registro-backend
     env: docker
     plan: free
-    disk: 1
+    region: oregon  # or your preferred region
     dockerfilePath: ./Dockerfile
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: PORT
-        value: 5000
+        value: 10000  # Render uses port 10000 by default
       - key: MONGODB_URI
-        scope: PRIVATE
+        fromService:
+          type: pserv
+          name: mongodb-atlas  # replace with your MongoDB service name
+        # OR use sync: false if you'll set this manually in Render dashboard
       - key: CLERK_SECRET_KEY
-        scope: PRIVATE
+        sync: false  # Set manually in Render dashboard for security
       - key: CLERK_ISSUER
         value: https://well-marmot-74.clerk.accounts.dev
       - key: CORS_ORIGIN
-        value: https://your-frontend-url.example
+        value: https://your-frontend-url.vercel.app  # Update with your actual frontend URL
+      - key: LOG_LEVEL
+        value: info
+    # Optional: configure health check
+    healthCheckPath: /
+    # Optional: auto-deploy from main branch
+    autoDeploy: true
+    branch: main
