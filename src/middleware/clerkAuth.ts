@@ -5,10 +5,13 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   try {
     const authHeader = req.headers.authorization;
     console.log('[clerkAuth] Authorization header present:', !!authHeader);
+    console.log('[clerkAuth] Request URL:', req.originalUrl);
+    console.log('[clerkAuth] Request method:', req.method);
+    
     const token = String(authHeader || '').replace(/^Bearer\s+/i, '') || undefined;
 
     if (!token) {
-      console.warn('[clerkAuth] No token provided');
+      console.warn('[clerkAuth] No token provided for:', req.originalUrl);
       return res.status(401).json({ error: 'No token provided' });
     }
 
@@ -33,14 +36,15 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       
       // Asignar el payload completo para acceso consistente
       (req as any).user = { sub: userId, userId };
+      console.log('[clerkAuth] Authentication successful for user:', userId);
       return next();
     } catch (err) {
       // Emit full error in server logs to diagnose why token is rejected
       console.error('[clerkAuth] verifyToken failed:', {
         message: err && (err as Error).message ? (err as Error).message : err,
         stack: err && (err as Error).stack ? (err as Error).stack : '(no stack)',
-        token: token,
-        jwksUrl: process.env.CLERK_ISSUER ? `${process.env.CLERK_ISSUER}/.well-known/jwks.json` : 'undefined',
+        issuer: process.env.CLERK_ISSUER,
+        hasSecretKey: !!process.env.CLERK_SECRET_KEY,
       });
       return res.status(401).json({ error: 'Invalid token' });
     }

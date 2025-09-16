@@ -16,7 +16,35 @@ const app = express();
 // Middlewares de seguridad y parsing
 app.use(helmet());
 app.use(compression());
-app.use(cors({ origin: process.env.CORS_ORIGIN || true }));
+
+// Configuración de CORS más específica para producción
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Lista de orígenes permitidos
+    const allowedOrigins = [
+      'http://localhost:5173', // Desarrollo local
+      'https://tc-front.vercel.app', // Tu dominio de Vercel
+      process.env.CORS_ORIGIN, // Variable de entorno adicional
+    ].filter(Boolean); // Filtrar valores undefined/null
+
+    // Permitir requests sin origin (como Postman) solo en desarrollo
+    if (!origin && process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+
+    if (origin && allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS: Origin ${origin} not allowed`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Permitir cookies/headers de autenticación
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+app.use(cors(corsOptions));
 // Capture raw body for debugging/parsing when necessary (keeps parsed JSON too)
 app.use(express.json({
   limit: '10kb',
