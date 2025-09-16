@@ -31,7 +31,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
         return res.status(401).json({ error: 'Invalid token format' });
       }
       
-      (req as any).user = { userId };
+      // Asignar el payload completo para acceso consistente
+      (req as any).user = { sub: userId, userId };
       return next();
     } catch (err) {
       // Emit full error in server logs to diagnose why token is rejected
