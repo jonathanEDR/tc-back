@@ -13,8 +13,51 @@ import {
   dateRanges,
   DATE_FORMATS
 } from '../utils/dateUtils';
+import {
+  buscarGastosPorTipoCosto,
+  buscarGastosPorTexto
+} from '../utils/sincronizacionGastos';
 
 const router = express.Router();
+
+// Función utilitaria para auto-registrar usuarios
+async function autoRegisterUser(userId: string): Promise<any> {
+  console.log('[CAJA] Usuario no encontrado en BD, creando automáticamente para clerkId:', userId);
+  
+  try {
+    // Obtener información del usuario desde Clerk
+    const { clerkClient } = await import('@clerk/clerk-sdk-node');
+    const clerkUser = await clerkClient.users.getUser(userId);
+    
+    // Verificar si ya existe un usuario con este email
+    const existingUserByEmail = await User.findOne({ 
+      email: clerkUser.emailAddresses?.[0]?.emailAddress 
+    });
+    
+    if (existingUserByEmail) {
+      // Si existe un usuario con este email, actualizamos su clerkId
+      console.log('[CAJA] Usuario existente encontrado con email, actualizando clerkId...');
+      existingUserByEmail.clerkId = userId;
+      const updatedUser = await existingUserByEmail.save();
+      console.log('[CAJA] ClerkId actualizado para usuario existente:', updatedUser._id);
+      return updatedUser;
+    } else {
+      // Crear nuevo usuario en la BD
+      const newUser = new User({
+        clerkId: userId,
+        name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Usuario',
+        email: clerkUser.emailAddresses?.[0]?.emailAddress || `user_${userId}@example.com`
+      });
+      
+      await newUser.save();
+      console.log('[CAJA] Usuario auto-registrado:', newUser._id);
+      return newUser;
+    }
+  } catch (autoRegisterError) {
+    console.error('[CAJA] Error en auto-registro:', autoRegisterError);
+    throw autoRegisterError;
+  }
+}
 
 // Esquemas de validación con Zod
 
@@ -52,7 +95,8 @@ const crearSalidaSchema = baseMovimientoSchema.extend({
     TipoCosto.MANO_OBRA,
     TipoCosto.MATERIA_PRIMA,
     TipoCosto.OTROS_GASTOS
-  ])
+  ]),
+  catalogoGastoId: z.string().optional() // ID del catálogo de gastos si proviene del catálogo
 });
 
 // Schema para INGRESOS
@@ -163,25 +207,9 @@ router.post('/', requireAuth, async (req, res) => {
     // Buscar el usuario en nuestra base de datos
     let user = await User.findOne({ clerkId: userId });
     if (!user) {
-      console.log('[CAJA] Usuario no encontrado en BD, creando automáticamente para clerkId:', userId);
-      
-      // Auto-registrar usuario de Clerk que no existe en BD
       try {
-        // Obtener información del usuario desde Clerk
-        const { clerkClient } = await import('@clerk/clerk-sdk-node');
-        const clerkUser = await clerkClient.users.getUser(userId);
-        
-        // Crear usuario en la BD
-        user = new User({
-          clerkId: userId,
-          name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Usuario',
-          email: clerkUser.emailAddresses?.[0]?.emailAddress || `user_${userId}@example.com`
-        });
-        
-        await user.save();
-        console.log('[CAJA] Usuario auto-registrado:', user._id);
+        user = await autoRegisterUser(userId);
       } catch (autoRegisterError) {
-        console.error('[CAJA] Error en auto-registro:', autoRegisterError);
         return res.status(404).json({ success: false, message: 'Usuario no encontrado y no se pudo auto-registrar' });
       }
     }
@@ -192,6 +220,13 @@ router.post('/', requireAuth, async (req, res) => {
 
     // Usar fechaCaja directamente como la fecha principal del movimiento
     const fechaCajaDate = new Date(datosValidados.fechaCaja);
+
+    if (!user || !user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no válido'
+      });
+    }
 
     const nuevoMovimiento = new Caja({
       ...datosValidados,
@@ -263,25 +298,9 @@ router.get('/', requireAuth, async (req, res) => {
     console.log('[CAJA] Usuario encontrado:', user ? { id: user._id, name: user.name, clerkId: user.clerkId } : 'NO ENCONTRADO');
     
     if (!user) {
-      console.log('[CAJA] Usuario no encontrado en BD, creando automáticamente para clerkId:', userId);
-      
-      // Auto-registrar usuario de Clerk que no existe en BD
       try {
-        // Obtener información del usuario desde Clerk
-        const { clerkClient } = await import('@clerk/clerk-sdk-node');
-        const clerkUser = await clerkClient.users.getUser(userId);
-        
-        // Crear usuario en la BD
-        user = new User({
-          clerkId: userId,
-          name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Usuario',
-          email: clerkUser.emailAddresses?.[0]?.emailAddress || `user_${userId}@example.com`
-        });
-        
-        await user.save();
-        console.log('[CAJA] Usuario auto-registrado:', user._id);
+        user = await autoRegisterUser(userId);
       } catch (autoRegisterError) {
-        console.error('[CAJA] Error en auto-registro:', autoRegisterError);
         return res.status(404).json({ success: false, message: 'Usuario no encontrado y no se pudo auto-registrar' });
       }
     }
@@ -609,6 +628,220 @@ router.get('/reportes/resumen', requireAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'
+    });
+  }
+});
+
+// ===== NUEVAS RUTAS DE ASISTENCIA PARA CREACIÓN DE GASTOS =====
+
+// **GET /api/caja/asistente/sugerencias-por-tipo/:tipoCosto** - Sugerencias de gastos del catálogo por tipo
+router.get('/asistente/sugerencias-por-tipo/:tipoCosto', requireAuth, async (req, res) => {
+  try {
+    const { tipoCosto } = req.params;
+    
+    // Validar que el tipo de costo sea válido
+    if (!Object.values(TipoCosto).includes(tipoCosto as TipoCosto)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tipo de costo inválido',
+        tiposValidos: Object.values(TipoCosto)
+      });
+    }
+
+    const sugerencias = await buscarGastosPorTipoCosto(tipoCosto as TipoCosto, {
+      soloActivos: true,
+      incluirMontoEstimado: true,
+      limite: 8
+    });
+
+    res.json({
+      success: true,
+      data: {
+        tipoCosto,
+        sugerencias: sugerencias.map(sug => ({
+          _id: sug._id,
+          nombre: sug.nombre,
+          categoria: sug.categoria,
+          montoEstimado: sug.montoEstimado,
+          relevancia: sug.relevancia
+        })),
+        total: sugerencias.length
+      },
+      message: `Encontradas ${sugerencias.length} sugerencias para ${tipoCosto}`
+    });
+
+  } catch (error: any) {
+    console.error('Error obteniendo sugerencias:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+});
+
+// **GET /api/caja/asistente/buscar-gasto/:texto** - Búsqueda inteligente de gastos para caja
+router.get('/asistente/buscar-gasto/:texto', requireAuth, async (req, res) => {
+  try {
+    const { texto } = req.params;
+    
+    if (!texto || texto.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'El texto de búsqueda debe tener al menos 2 caracteres'
+      });
+    }
+
+    const { tipoCosto } = req.query;
+    const tipoCostoFiltro = tipoCosto && Object.values(TipoCosto).includes(tipoCosto as TipoCosto) 
+      ? tipoCosto as TipoCosto 
+      : undefined;
+
+    const resultados = await buscarGastosPorTexto(texto, tipoCostoFiltro);
+
+    res.json({
+      success: true,
+      data: {
+        textoBuscado: texto,
+        tipoCostoFiltro: tipoCostoFiltro || null,
+        resultados: resultados.map(res => ({
+          _id: res._id,
+          nombre: res.nombre,
+          categoria: res.categoria,
+          montoEstimado: res.montoEstimado,
+          tipoCostoSugerido: res.tipoCostoSugerido,
+          relevancia: res.relevancia
+        })),
+        total: resultados.length
+      },
+      message: `Encontrados ${resultados.length} resultados para "${texto}"`
+    });
+
+  } catch (error: any) {
+    console.error('Error en búsqueda de gastos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+});
+
+// **POST /api/caja/asistente/crear-desde-catalogo** - Crear movimiento de caja usando un gasto del catálogo
+router.post('/asistente/crear-desde-catalogo', requireAuth, async (req, res) => {
+  try {
+    console.log('[CAJA] POST /asistente/crear-desde-catalogo - Datos recibidos:', JSON.stringify(req.body, null, 2));
+    
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Usuario no autenticado' });
+    }
+
+    // Schema específico para crear desde catálogo
+    const crearDesdeCatalogoSchema = z.object({
+      catalogoGastoId: z.string().min(1, "ID del catálogo es obligatorio"),
+      fechaCaja: z.string().refine((val) => !isNaN(Date.parse(val)), {
+        message: "Fecha inválida"
+      }),
+      monto: z.number().min(0.01, "El monto debe ser mayor a 0").max(999999999, "Monto muy alto"),
+      metodoPago: z.enum([
+        MetodoPago.EFECTIVO,
+        MetodoPago.TRANSFERENCIA,
+        MetodoPago.YAPE,
+        MetodoPago.PLIN,
+        MetodoPago.DEPOSITO,
+        MetodoPago.CHEQUE,
+        MetodoPago.TARJETA
+      ]),
+      descripcionPersonalizada: z.string().min(5, "Descripción muy corta").max(200, "Descripción muy larga").optional(),
+      categoria: z.enum([
+        CategoriaCaja.FINANZAS,
+        CategoriaCaja.OPERACIONES,
+        CategoriaCaja.VENTAS,
+        CategoriaCaja.ADMINISTRATIVO
+      ]),
+      tipoCosto: z.enum([
+        TipoCosto.MANO_OBRA,
+        TipoCosto.MATERIA_PRIMA,
+        TipoCosto.OTROS_GASTOS
+      ]),
+      comprobante: z.string().max(50, "Comprobante muy largo").optional(),
+      observaciones: z.string().max(500, "Observaciones muy largas").optional()
+    });
+
+    const validatedData = crearDesdeCatalogoSchema.parse(req.body);
+
+    // Verificar que el gasto del catálogo existe
+    const { buscarGastosPorTipoCosto } = await import('../utils/sincronizacionGastos');
+    const CatalogoGasto = (await import('../models/CatalogoGastos')).default;
+    
+    const gastoReferencia = await CatalogoGasto.findById(validatedData.catalogoGastoId);
+    if (!gastoReferencia) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gasto del catálogo no encontrado'
+      });
+    }
+
+    // Buscar o crear usuario
+    let user = await User.findOne({ clerkId: userId });
+    if (!user) {
+      user = await autoRegisterUser(userId);
+    }
+
+    if (!user) {
+      return res.status(500).json({
+        success: false,
+        message: 'Error al obtener información del usuario'
+      });
+    }
+
+    // Crear el movimiento de caja
+    const nuevoMovimiento = new Caja({
+      fechaCaja: new Date(validatedData.fechaCaja),
+      monto: validatedData.monto,
+      tipoMovimiento: TipoMovimiento.SALIDA, // Siempre es salida cuando viene del catálogo
+      descripcion: validatedData.descripcionPersonalizada || gastoReferencia.nombre,
+      categoria: validatedData.categoria,
+      tipoCosto: validatedData.tipoCosto,
+      catalogoGastoId: gastoReferencia._id, // Referencia al catálogo
+      metodoPago: validatedData.metodoPago,
+      usuario: user._id,
+      comprobante: validatedData.comprobante,
+      observaciones: validatedData.observaciones
+    });
+
+    const movimientoGuardado = await nuevoMovimiento.save();
+    await movimientoGuardado.populate('usuario', 'name email clerkId');
+
+    console.log('[CAJA] Movimiento creado desde catálogo:', movimientoGuardado._id);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        movimiento: movimientoGuardado,
+        gastoReferencia: {
+          _id: gastoReferencia._id,
+          nombre: gastoReferencia.nombre,
+          categoria: gastoReferencia.categoria
+        }
+      },
+      message: 'Movimiento creado exitosamente desde catálogo'
+    });
+
+  } catch (error: any) {
+    console.error('[CAJA] Error creando movimiento desde catálogo:', error);
+    
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Datos inválidos',
+        errors: error.issues
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

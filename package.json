@@ -13,7 +13,12 @@
     "verify-users:advanced": "ts-node src/scripts/verifyUsersAdvanced.ts",
     "status": "ts-node src/scripts/quickStatus.ts",
     "test-registration": "ts-node src/scripts/testRegistration.ts",
-    "test-endpoint": "ts-node src/scripts/testEndpoint.ts"
+    "test-endpoint": "ts-node src/scripts/testEndpoint.ts",
+    "test-caja": "ts-node src/scripts/testCaja.ts",
+    "test-catalogos": "ts-node src/scripts/testCatalogos.ts",
+    "test-sincronizacion": "ts-node src/scripts/testSincronizacion.ts",
+    "clean-test-data": "ts-node src/scripts/limpiarDatosPrueba.ts",
+    "test-suite": "ts-node src/scripts/suiteCompleta.ts"
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.23",

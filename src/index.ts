@@ -22,17 +22,20 @@ const corsOptions = {
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     // Lista de orígenes permitidos
     const allowedOrigins = [
-      'http://localhost:5173', // Desarrollo local
+      'http://localhost:5173', // Desarrollo local (Vite)
+      'http://localhost:3000', // Desarrollo local (alternativo)
       'https://tc-front.vercel.app', // Tu dominio de Vercel
       process.env.CORS_ORIGIN, // Variable de entorno adicional
     ].filter(Boolean); // Filtrar valores undefined/null
 
-    // Permitir requests sin origin (como Postman) solo en desarrollo
-    if (!origin && process.env.NODE_ENV === 'development') {
+    // Permitir requests sin origin (como Postman, apps locales) en desarrollo
+    if (!origin) {
+      console.log('CORS: Permitiendo request sin origin (desarrollo/Postman)');
       return callback(null, true);
     }
 
     if (origin && allowedOrigins.includes(origin)) {
+      console.log(`CORS: Origin ${origin} permitido`);
       callback(null, true);
     } else {
       console.warn(`CORS: Origin ${origin} not allowed`);

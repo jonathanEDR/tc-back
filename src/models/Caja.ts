@@ -50,6 +50,8 @@ export interface ICaja {
   tipoCosto?: TipoCosto;
   // Para ingresos
   categoriaIngreso?: CategoriaIngreso;
+  // Referencia al catálogo de gastos (para salidas que provienen del catálogo)
+  catalogoGastoId?: Types.ObjectId;
   // Método de pago (para ambos)
   metodoPago: MetodoPago;
   usuario: Types.ObjectId;
@@ -128,6 +130,12 @@ const cajaSchema = new Schema<ICaja>({
       },
       message: 'El tipo de costo es obligatorio para salidas'
     }
+  },
+  // Referencia al catálogo de gastos (opcional para salidas)
+  catalogoGastoId: {
+    type: Schema.Types.ObjectId,
+    ref: 'CatalogoGastos',
+    required: false
   },
   // Campos para INGRESOS
   categoriaIngreso: {
