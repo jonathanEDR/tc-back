@@ -308,9 +308,12 @@ router.get('/', requireAuth, async (req, res) => {
     console.log('[CAJA] Validando filtros...');
     const filtros = filtrosSchema.parse(req.query);
     console.log('[CAJA] Filtros válidos:', filtros);
-    
-    // Construir query - Mostrar todos los registros de todos los usuarios
-    const query: any = {};
+
+    // ✅ CONSULTA GLOBAL: Construir query para mostrar movimientos de todos los usuarios
+    const query: any = {
+      // Comentado para permitir ver movimientos de todos los usuarios
+      // usuario: user._id // ORIGINAL: Solo mostrar movimientos del usuario autenticado
+    };
 
     // Filtros de fecha
     if (filtros.fechaInicio || filtros.fechaFin) {
@@ -352,8 +355,11 @@ router.get('/', requireAuth, async (req, res) => {
       Caja.countDocuments(query)
     ]);
 
-    // Calcular resumen - Incluir todos los registros
-    const resumenQuery: any = {};
+    // Calcular resumen - DE TODOS LOS USUARIOS
+    const resumenQuery: any = {
+      // Comentado para permitir resumen global
+      // usuario: user._id // ORIGINAL: Solo calcular resumen del usuario autenticado
+    };
     if (filtros.fechaInicio || filtros.fechaFin) {
       resumenQuery.fechaCaja = query.fechaCaja;
     }
@@ -821,7 +827,7 @@ router.post('/asistente/crear-desde-catalogo', requireAuth, async (req, res) => 
         gastoReferencia: {
           _id: gastoReferencia._id,
           nombre: gastoReferencia.nombre,
-          categoria: gastoReferencia.categoria
+          categoriaGasto: gastoReferencia.categoriaGasto
         }
       },
       message: 'Movimiento creado exitosamente desde catálogo'

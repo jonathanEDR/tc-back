@@ -101,6 +101,9 @@ catalogoGastoSchema.index({ categoriaGasto: 1, estado: 1 });
 catalogoGastoSchema.index({ tipoGasto: 1, estado: 1 });
 catalogoGastoSchema.index({ nombre: 'text', descripcion: 'text' }); // Índice de texto para búsquedas
 
+// Índice único compuesto para prevenir duplicados por usuario
+catalogoGastoSchema.index({ nombre: 1, creadoPor: 1 }, { unique: true });
+
 // Virtual para formatear el monto estimado
 catalogoGastoSchema.virtual('montoEstimadoFormateado').get(function() {
   if (!this.montoEstimado) return 'No especificado';

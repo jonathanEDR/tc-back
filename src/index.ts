@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import { connectDB, disconnectDB } from './utils/db';
 import logger from './utils/logger';
+import { apiLogger } from './utils/secureLogger';
 import apiRouter from './routes';
 
 dotenv.config();
@@ -17,34 +18,45 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 
-// Configuración de CORS más específica para producción
+const isDev = process.env.NODE_ENV === 'development';
+
+// Configuración de CORS segura
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     // Lista de orígenes permitidos
     const allowedOrigins = [
       'http://localhost:5173', // Desarrollo local (Vite)
       'http://localhost:3000', // Desarrollo local (alternativo)
-      'https://tc-front.vercel.app', // Tu dominio de Vercel
+      'https://tc-front.vercel.app', // Dominio de Vercel
       process.env.CORS_ORIGIN, // Variable de entorno adicional
     ].filter(Boolean); // Filtrar valores undefined/null
 
-    // Permitir requests sin origin (como Postman, apps locales) en desarrollo
+    // En desarrollo, permitir requests sin origin SOLO para herramientas como Postman
     if (!origin) {
-      console.log('CORS: Permitiendo request sin origin (desarrollo/Postman)');
-      return callback(null, true);
+      if (isDev) {
+        logger.debug('CORS: Allowing request without origin (development tools)');
+        return callback(null, true);
+      } else {
+        // En producción, rechazar requests sin origin por seguridad
+        logger.warn('CORS: Rejecting request without origin in production');
+        return callback(new Error('Origin required in production'));
+      }
     }
 
     if (origin && allowedOrigins.includes(origin)) {
-      console.log(`CORS: Origin ${origin} permitido`);
+      logger.debug('CORS: Origin allowed', { origin });
       callback(null, true);
     } else {
-      console.warn(`CORS: Origin ${origin} not allowed`);
+      logger.warn('CORS: Origin not allowed', { origin, allowedOrigins });
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true, // Permitir cookies/headers de autenticación
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  // Configuraciones adicionales de seguridad
+  optionsSuccessStatus: 200, // Para soporte legacy IE11
+  maxAge: isDev ? 86400 : 3600, // Cache preflight requests (24h dev, 1h prod)
 };
 
 app.use(cors(corsOptions));
@@ -69,6 +81,15 @@ app.use(limiter);
 
 // API routes
 app.use('/api', apiRouter);
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    service: 'vcaja-backend'
+  });
+});
 
 // Health / root
 app.get('/', (req, res) => res.send('Servidor backend activo'));

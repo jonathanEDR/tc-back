@@ -1,57 +1,70 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '@clerk/clerk-sdk-node';
+import { authLogger } from '../utils/secureLogger';
+
+const isDev = process.env.NODE_ENV === 'development';
 
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
-    console.log('[clerkAuth] Authorization header present:', !!authHeader);
-    console.log('[clerkAuth] Request URL:', req.originalUrl);
-    console.log('[clerkAuth] Request method:', req.method);
-    
+
+    authLogger.debug('Authentication attempt', {
+      hasAuthHeader: !!authHeader,
+      url: req.originalUrl,
+      method: req.method
+    });
+
     const token = String(authHeader || '').replace(/^Bearer\s+/i, '') || undefined;
 
     if (!token) {
-      console.warn('[clerkAuth] No token provided for:', req.originalUrl);
+      authLogger.warn('No token provided', {
+        url: req.originalUrl,
+        method: req.method
+      });
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    // Log a small, non-sensitive preview to help debug token format issues
-    const preview = `${token.slice(0, 8)}...${token.slice(-8)}`;
-    const dotCount = (token.match(/\./g) || []).length;
-    console.log('[clerkAuth] token preview:', preview, 'len=', token.length, 'dots=', dotCount);
+    // Solo log formato básico en desarrollo, sin contenido del token
+    authLogger.debug('Token format validation', {
+      tokenLength: token.length,
+      segments: (token.match(/\./g) || []).length + 1
+    });
 
     try {
       const payload = await verifyToken(token, {
         secretKey: process.env.CLERK_SECRET_KEY!,
         issuer: process.env.CLERK_ISSUER || 'https://clerk.clerk.accounts.dev',
       });
-      console.log('[clerkAuth] verifyToken payload:', payload && (payload as any).sub ? { sub: (payload as any).sub } : '(no sub)');
-      
+
       // Extraer el userId del payload de Clerk
       const userId = (payload as any).sub;
       if (!userId) {
-        console.error('[clerkAuth] No sub found in payload');
+        authLogger.error('No user ID found in token payload');
         return res.status(401).json({ error: 'Invalid token format' });
       }
-      
+
       // Asignar el payload completo para acceso consistente
       (req as any).user = { sub: userId, userId };
-      console.log('[clerkAuth] Authentication successful for user:', userId);
+
+      authLogger.debug('Authentication successful', {
+        url: req.originalUrl,
+        method: req.method
+      });
+
       return next();
     } catch (err) {
-      // Emit full error in server logs to diagnose why token is rejected
-      console.error('[clerkAuth] verifyToken failed:', {
-        message: err && (err as Error).message ? (err as Error).message : err,
-        stack: err && (err as Error).stack ? (err as Error).stack : '(no stack)',
-        issuer: process.env.CLERK_ISSUER,
+      authLogger.error('Token verification failed', {
+        error: err instanceof Error ? err.message : 'Unknown error',
         hasSecretKey: !!process.env.CLERK_SECRET_KEY,
+        issuer: process.env.CLERK_ISSUER,
+        url: req.originalUrl
       });
       return res.status(401).json({ error: 'Invalid token' });
     }
   } catch (error) {
-    console.error('[clerkAuth] unexpected error:', {
-      message: error && (error as Error).message ? (error as Error).message : error,
-      stack: error && (error as Error).stack ? (error as Error).stack : '(no stack)',
+    authLogger.error('Unexpected authentication error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      url: req.originalUrl
     });
     res.status(401).json({ error: 'Invalid token' });
   }
