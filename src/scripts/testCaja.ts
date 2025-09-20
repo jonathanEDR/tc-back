@@ -17,11 +17,11 @@ import User from '../models/User';
 import { getNowInLima, formatInLima } from '../utils/dateUtils';
 import logger from '../utils/logger';
 
-// Datos de prueba para el modelo Caja
+// Datos de prueba para el modelo Caja - ACTUALIZADOS A SEPTIEMBRE 2025
 const datosPruebaCaja = [
-  // ENTRADAS (Ingresos)
+  // ENTRADAS (Ingresos) - Semana actual
   {
-    fechaCaja: new Date('2024-09-15T10:30:00'),
+    fechaCaja: new Date('2025-09-15T10:30:00'),
     monto: 1500.00,
     tipoMovimiento: TipoMovimiento.ENTRADA,
     descripcion: 'Venta directa de productos terminados',
@@ -31,7 +31,7 @@ const datosPruebaCaja = [
     observaciones: 'Cliente frecuente - pago al contado'
   },
   {
-    fechaCaja: new Date('2024-09-15T14:20:00'),
+    fechaCaja: new Date('2025-09-15T14:20:00'),
     monto: 2800.50,
     tipoMovimiento: TipoMovimiento.ENTRADA,
     descripcion: 'Servicios de operaciones especializadas',
@@ -41,7 +41,7 @@ const datosPruebaCaja = [
     observaciones: 'Proyecto empresarial'
   },
   {
-    fechaCaja: new Date('2024-09-16T09:15:00'),
+    fechaCaja: new Date('2025-09-16T09:15:00'),
     monto: 450.75,
     tipoMovimiento: TipoMovimiento.ENTRADA,
     descripcion: 'Intereses bancarios del mes',
@@ -50,7 +50,7 @@ const datosPruebaCaja = [
     observaciones: 'Rendimientos de cuenta de ahorros'
   },
   {
-    fechaCaja: new Date('2024-09-16T16:45:00'),
+    fechaCaja: new Date('2025-09-16T16:45:00'),
     monto: 720.00,
     tipoMovimiento: TipoMovimiento.ENTRADA,
     descripcion: 'Venta de material reciclable',
@@ -58,10 +58,20 @@ const datosPruebaCaja = [
     metodoPago: MetodoPago.YAPE,
     observaciones: 'Material de descarte aprovechado'
   },
-
-  // SALIDAS (Gastos)
   {
-    fechaCaja: new Date('2024-09-15T08:00:00'),
+    fechaCaja: new Date('2025-09-18T11:00:00'),
+    monto: 1200.00,
+    tipoMovimiento: TipoMovimiento.ENTRADA,
+    descripcion: 'Venta productos premium',
+    categoriaIngreso: CategoriaIngreso.VENTA_DIRECTA,
+    metodoPago: MetodoPago.TRANSFERENCIA,
+    comprobante: 'FAC-003',
+    observaciones: 'Venta especial fin de semana'
+  },
+
+  // SALIDAS (Gastos) - Semana actual
+  {
+    fechaCaja: new Date('2025-09-15T08:00:00'),
     monto: 850.00,
     tipoMovimiento: TipoMovimiento.SALIDA,
     descripcion: 'Pago de salarios semanales',
@@ -72,7 +82,7 @@ const datosPruebaCaja = [
     observaciones: 'Pago semanal personal operativo'
   },
   {
-    fechaCaja: new Date('2024-09-15T11:30:00'),
+    fechaCaja: new Date('2025-09-15T11:30:00'),
     monto: 320.50,
     tipoMovimiento: TipoMovimiento.SALIDA,
     descripcion: 'Compra de materiales básicos',
@@ -83,7 +93,7 @@ const datosPruebaCaja = [
     observaciones: 'Materiales para producción semanal'
   },
   {
-    fechaCaja: new Date('2024-09-16T13:20:00'),
+    fechaCaja: new Date('2025-09-16T13:20:00'),
     monto: 180.00,
     tipoMovimiento: TipoMovimiento.SALIDA,
     descripcion: 'Gastos de combustible',
@@ -94,7 +104,7 @@ const datosPruebaCaja = [
     observaciones: 'Combustible para vehículos de reparto'
   },
   {
-    fechaCaja: new Date('2024-09-16T15:45:00'),
+    fechaCaja: new Date('2025-09-16T15:45:00'),
     monto: 95.25,
     tipoMovimiento: TipoMovimiento.SALIDA,
     descripcion: 'Material de oficina',
@@ -105,7 +115,7 @@ const datosPruebaCaja = [
     observaciones: 'Papelería y útiles de oficina'
   },
   {
-    fechaCaja: new Date('2024-09-17T10:15:00'),
+    fechaCaja: new Date('2025-09-17T10:15:00'),
     monto: 250.00,
     tipoMovimiento: TipoMovimiento.SALIDA,
     descripcion: 'Comisiones bancarias',
@@ -115,7 +125,7 @@ const datosPruebaCaja = [
     observaciones: 'Mantenimiento de cuentas y transferencias'
   },
   {
-    fechaCaja: new Date('2024-09-17T14:30:00'),
+    fechaCaja: new Date('2025-09-17T14:30:00'),
     monto: 420.80,
     tipoMovimiento: TipoMovimiento.SALIDA,
     descripcion: 'Bonificación por ventas',
@@ -124,24 +134,75 @@ const datosPruebaCaja = [
     metodoPago: MetodoPago.EFECTIVO,
     comprobante: 'REC-002',
     observaciones: 'Incentivo mensual equipo de ventas'
+  },
+  
+  // Datos adicionales para el mes completo
+  {
+    fechaCaja: new Date('2025-09-10T09:00:00'),
+    monto: 680.00,
+    tipoMovimiento: TipoMovimiento.SALIDA,
+    descripcion: 'Mantenimiento de equipos',
+    categoria: CategoriaCaja.OPERACIONES,
+    tipoCosto: TipoCosto.OTROS_GASTOS,
+    metodoPago: MetodoPago.TRANSFERENCIA,
+    comprobante: 'FAC-301',
+    observaciones: 'Mantenimiento preventivo mensual'
+  },
+  {
+    fechaCaja: new Date('2025-09-12T16:00:00'),
+    monto: 2200.00,
+    tipoMovimiento: TipoMovimiento.ENTRADA,
+    descripcion: 'Contrato servicios mensuales',
+    categoriaIngreso: CategoriaIngreso.VENTA_OPERACIONES,
+    metodoPago: MetodoPago.TRANSFERENCIA,
+    comprobante: 'FAC-004',
+    observaciones: 'Contrato mensual empresa ABC'
+  },
+  {
+    fechaCaja: new Date('2025-09-19T10:30:00'),
+    monto: 150.00,
+    tipoMovimiento: TipoMovimiento.SALIDA,
+    descripcion: 'Servicios de internet',
+    categoria: CategoriaCaja.ADMINISTRATIVO,
+    tipoCosto: TipoCosto.OTROS_GASTOS,
+    metodoPago: MetodoPago.TARJETA,
+    comprobante: 'BOL-103',
+    observaciones: 'Pago mensual internet y telefonía'
+  },
+  {
+    fechaCaja: new Date('2025-09-20T14:00:00'),
+    monto: 890.00,
+    tipoMovimiento: TipoMovimiento.ENTRADA,
+    descripcion: 'Venta productos al por menor',
+    categoriaIngreso: CategoriaIngreso.VENTA_DIRECTA,
+    metodoPago: MetodoPago.YAPE,
+    comprobante: 'BOL-005',
+    observaciones: 'Venta directa varios productos'
   }
 ];
 
 async function crearUsuarioPrueba() {
   try {
-    // Buscar si ya existe un usuario de prueba
-    let usuarioPrueba = await User.findOne({ email: 'test@example.com' });
+    // Buscar si ya existe tu usuario real (basado en los logs que viste)
+    let usuarioPrueba = await User.findOne({ clerkId: 'user_32mztGbKipp1tCC9u5lMIxNNFeU' });
     
     if (!usuarioPrueba) {
-      usuarioPrueba = new User({
-        clerkId: 'test_user_clerk_id',
-        name: 'Usuario de Prueba',
-        email: 'test@example.com'
-      });
-      await usuarioPrueba.save();
-      logger.info('Usuario de prueba creado:', usuarioPrueba._id);
+      // Si no existe, buscar el usuario de prueba genérico
+      usuarioPrueba = await User.findOne({ email: 'test@example.com' });
+      
+      if (!usuarioPrueba) {
+        usuarioPrueba = new User({
+          clerkId: 'test_user_clerk_id',
+          name: 'Usuario de Prueba',
+          email: 'test@example.com'
+        });
+        await usuarioPrueba.save();
+        logger.info('Usuario de prueba creado:', usuarioPrueba._id);
+      } else {
+        logger.info('Usuario de prueba existente encontrado:', usuarioPrueba._id);
+      }
     } else {
-      logger.info('Usuario de prueba existente encontrado:', usuarioPrueba._id);
+      logger.info('Usuario real encontrado (jonathan):', usuarioPrueba._id);
     }
     
     return usuarioPrueba;
@@ -160,12 +221,11 @@ async function insertarDatosCaja() {
     // Crear usuario de prueba
     const usuarioPrueba = await crearUsuarioPrueba();
 
-    // Limpiar registros de prueba anteriores
-    await Caja.deleteMany({ 
-      usuario: usuarioPrueba._id,
-      descripcion: { $regex: /prueba|test/i }
+    // Limpiar registros anteriores de este usuario (tanto 2024 como datos viejos)
+    const resultadoLimpieza = await Caja.deleteMany({ 
+      usuario: usuarioPrueba._id
     });
-    logger.info('Registros de prueba anteriores eliminados');
+    logger.info(`Registros anteriores eliminados: ${resultadoLimpieza.deletedCount}`);
 
     // Insertar nuevos datos de prueba
     const registrosCreados = [];

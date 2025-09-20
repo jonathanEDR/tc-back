@@ -75,9 +75,40 @@ app.use(express.json({
 // Logging de requests
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// Rate limiter básico
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+// Rate limiter para API general - más permisivo
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 50, // máximo 50 requests por minuto por IP (más permisivo)
+  message: {
+    error: 'Demasiadas peticiones desde esta IP, prueba de nuevo en un minuto.'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) => {
+    // Skip rate limiting para localhost en desarrollo pero mantener para otros
+    return process.env.NODE_ENV === 'development' && req.ip === '127.0.0.1';
+  }
+});
+
+// Rate limiter específico para rutas de caja (más estricto)
+const cajaLimiter = rateLimit({
+  windowMs: 10 * 1000, // 10 segundos (menos tiempo)
+  max: 15, // máximo 15 requests por 10 segundos (más permisivo)
+  message: {
+    error: 'Demasiadas peticiones a la API de caja, espera un momento.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // En desarrollo, ser más permisivo pero no desactivar completamente
+    return process.env.NODE_ENV === 'development' && req.ip === '127.0.0.1';
+  }
+});
+
 app.use(limiter);
+
+// Aplicar rate limiter específico para rutas de caja
+app.use('/api/caja', cajaLimiter);
 
 // API routes
 app.use('/api', apiRouter);
