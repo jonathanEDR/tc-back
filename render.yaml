@@ -23,6 +23,8 @@ services:
         value: https://your-frontend-url.vercel.app  # Update with your actual frontend URL
       - key: LOG_LEVEL
         value: info
+      - key: LOG_DIR
+        value: /tmp/logs  # Usar directorio temporal para logs en Render
     # Optional: configure health check
     healthCheckPath: /
     # Optional: auto-deploy from main branch

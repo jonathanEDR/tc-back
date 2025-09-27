@@ -1,7 +1,28 @@
 import winston from 'winston';
+import fs from 'fs';
+import path from 'path';
 
 // Configuración del logger seguro
 const isDev = process.env.NODE_ENV === 'development';
+
+// Configuración de directorios de logs
+const LOG_DIR = process.env.LOG_DIR || 'logs';
+
+// Función para crear directorio de logs si no existe
+function ensureLogDirectory(): boolean {
+  try {
+    if (!fs.existsSync(LOG_DIR)) {
+      fs.mkdirSync(LOG_DIR, { recursive: true });
+    }
+    return true;
+  } catch (error) {
+    console.warn(`No se pudo crear el directorio de logs: ${LOG_DIR}. Los logs solo se mostrarán en consola.`);
+    return false;
+  }
+}
+
+// Verificar si se puede escribir en el directorio de logs
+const canWriteLogs = ensureLogDirectory();
 
 // Crear el logger con configuración segura
 const secureLogger = winston.createLogger({
@@ -21,27 +42,26 @@ const secureLogger = winston.createLogger({
   ),
   defaultMeta: { service: 'vcaja-backend' },
   transports: [
-    // Log de errores a archivo (solo en producción)
-    ...(isDev ? [] : [
+    // Log de errores a archivo (solo en producción y si se puede escribir)
+    ...(isDev || !canWriteLogs ? [] : [
       new winston.transports.File({
-        filename: 'logs/error.log',
+        filename: path.join(LOG_DIR, 'error.log'),
         level: 'error',
         maxsize: 5242880, // 5MB
         maxFiles: 5
       }),
       new winston.transports.File({
-        filename: 'logs/combined.log',
+        filename: path.join(LOG_DIR, 'combined.log'),
         maxsize: 5242880, // 5MB
         maxFiles: 5
       })
     ]),
-    // Console transport con formato simple en desarrollo
+    // Console transport - siempre disponible como fallback
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
         winston.format.simple()
-      ),
-      silent: !isDev // Solo mostrar en desarrollo
+      )
     })
   ]
 });

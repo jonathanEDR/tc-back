@@ -22,6 +22,7 @@ RUN adduser --system --uid 1001 nodejs
 ENV NODE_ENV=production
 ARG PORT=5000
 ENV PORT=$PORT
+ENV LOG_DIR=/tmp/logs
 
 # Copy package files and install production deps
 COPY --from=builder /app/package*.json ./
@@ -29,6 +30,9 @@ RUN npm ci --omit=dev --silent && npm cache clean --force
 
 # Copy built application
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+
+# Create logs directory in /tmp (which is writable)
+RUN mkdir -p /tmp/logs && chown nodejs:nodejs /tmp/logs
 
 # Use non-root user
 USER nodejs
