@@ -10,6 +10,7 @@ export enum CategoriaCaja {
 
 // Nuevas categorías específicas para ingresos
 export enum CategoriaIngreso {
+  APERTURA_CAJA = 'apertura_caja',
   VENTA_DIRECTA = 'venta_directa',
   VENTA_OPERACIONES = 'venta_operaciones',
   INGRESOS_FINANCIEROS = 'ingresos_financieros',

@@ -103,6 +103,7 @@ const crearSalidaSchema = baseMovimientoSchema.extend({
 const crearIngresoSchema = baseMovimientoSchema.extend({
   tipoMovimiento: z.literal(TipoMovimiento.ENTRADA),
   categoriaIngreso: z.enum([
+    CategoriaIngreso.APERTURA_CAJA,
     CategoriaIngreso.VENTA_DIRECTA,
     CategoriaIngreso.VENTA_OPERACIONES,
     CategoriaIngreso.INGRESOS_FINANCIEROS,
@@ -147,6 +148,7 @@ const actualizarMovimientoSchema = z.object({
   ]).optional(),
   // Campos para ingresos
   categoriaIngreso: z.enum([
+    CategoriaIngreso.APERTURA_CAJA,
     CategoriaIngreso.VENTA_DIRECTA,
     CategoriaIngreso.VENTA_OPERACIONES,
     CategoriaIngreso.INGRESOS_FINANCIEROS,
@@ -173,6 +175,7 @@ const filtrosSchema = z.object({
   ]).optional(),
   // Filtros para ingresos
   categoriaIngreso: z.enum([
+    CategoriaIngreso.APERTURA_CAJA,
     CategoriaIngreso.VENTA_DIRECTA,
     CategoriaIngreso.VENTA_OPERACIONES,
     CategoriaIngreso.INGRESOS_FINANCIEROS,
@@ -328,8 +331,10 @@ router.get('/', requireAuth, async (req, res) => {
 
     // Otros filtros
     if (filtros.categoria) query.categoria = filtros.categoria;
+    if (filtros.categoriaIngreso) query.categoriaIngreso = filtros.categoriaIngreso;
     if (filtros.tipoCosto) query.tipoCosto = filtros.tipoCosto;
     if (filtros.tipoMovimiento) query.tipoMovimiento = filtros.tipoMovimiento;
+    if (filtros.metodoPago) query.metodoPago = filtros.metodoPago;
 
     // Búsqueda en descripción
     if (filtros.search) {
