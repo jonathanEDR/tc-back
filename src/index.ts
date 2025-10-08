@@ -22,7 +22,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 // Configuración de CORS segura
 const corsOptions = {
-  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void, req?: any) {
     // Lista de orígenes permitidos
     const allowedOrigins = [
       'http://localhost:5173', // Desarrollo local (Vite)
@@ -37,9 +37,17 @@ const corsOptions = {
         logger.debug('CORS: Allowing request without origin (development tools)');
         return callback(null, true);
       } else {
-        // En producción, rechazar requests sin origin por seguridad
-        logger.warn('CORS: Rejecting request without origin in production');
-        return callback(new Error('Origin required in production'));
+        // En producción, permitir requests sin origin solo para health checks y root
+        const path = req?.url || req?.path || '';
+        const isHealthOrRoot = path === '/' || path.startsWith('/api/health') || path === '/api/health';
+        
+        if (isHealthOrRoot) {
+          logger.debug('CORS: Allowing request without origin for health check/root', { path });
+          return callback(null, true);
+        } else {
+          logger.warn('CORS: Rejecting request without origin in production', { path });
+          return callback(new Error('Origin required in production'));
+        }
       }
     }
 
@@ -58,6 +66,21 @@ const corsOptions = {
   optionsSuccessStatus: 200, // Para soporte legacy IE11
   maxAge: isDev ? 86400 : 3600, // Cache preflight requests (24h dev, 1h prod)
 };
+
+// Health check endpoints ANTES de CORS para permitir monitoreo
+app.get('/', (req, res) => res.json({ 
+  status: 'ok', 
+  service: 'vcaja-backend',
+  timestamp: new Date().toISOString()
+}));
+
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    service: 'vcaja-backend'
+  });
+});
 
 app.use(cors(corsOptions));
 // Capture raw body for debugging/parsing when necessary (keeps parsed JSON too)
@@ -112,18 +135,6 @@ app.use('/api/caja', cajaLimiter);
 
 // API routes
 app.use('/api', apiRouter);
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    service: 'vcaja-backend'
-  });
-});
-
-// Health / root
-app.get('/', (req, res) => res.send('Servidor backend activo'));
 
 const PORT = Number(process.env.PORT) || 4000;
 
